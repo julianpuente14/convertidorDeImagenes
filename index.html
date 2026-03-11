@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convertidor de Formatos de Imagen</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080808;
+    --surface: rgba(255,255,255,0.03);
+    --border: rgba(255,255,255,0.08);
+    --muted: #333;
+    --dim: #222;
+    --accent: #00e5ff;
+  }
+
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: 'Space Mono', 'Courier New', monospace;
+    min-height: 100vh;
+    padding: 48px 24px;
+    overflow-x: hidden;
+  }
+
+  /* Scanline */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -100%;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(transparent, rgba(255,255,255,0.04), transparent);
+    animation: scanline 9s linear infinite;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  @keyframes scanline { to { top: 110%; } }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .wrapper { max-width: 900px; margin: 0 auto; }
+
+  /* Header */
+  .eyebrow { font-size: 10px; color: #ffffff; letter-spacing: 4px; margin-bottom: 14px; }
+
+  h1 {
+    font-size: clamp(36px, 7vw, 60px);
+    font-weight: 700;
+    letter-spacing: -3px;
+    line-height: 1;
+    margin-bottom: 14px;
+  }
+
+  h1 span {
+    color: var(--accent);
+    text-shadow: 0 0 50px color-mix(in srgb, var(--accent) 30%, transparent);
+    transition: color 0.3s, text-shadow 0.3s;
+  }
+
+  .tagline { font-size: 10px; color: #ffffff; letter-spacing: 3px; margin-bottom: 48px; }
+
+  /* Grid controls */
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+  @media(max-width: 580px) { .controls { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px;
+  }
+
+  .panel-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: #ffffff;
+    margin-bottom: 16px;
+  }
+
+  /* Format buttons */
+  .fmt-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .fmt-btn {
+    background: transparent;
+    border: 1px solid #1e1e1e;
+    color: #444;
+    padding: 7px 13px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 1px;
+    border-radius: 1px;
+    transition: all 0.15s;
+  }
+
+  .fmt-btn:hover { border-color: #444; color: #aaa; }
+
+  .fmt-btn.active {
+    font-weight: 700;
+    color: #000;
+  }
+
+  /* Quality */
+  .quality-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .quality-val { font-size: 20px; font-weight: 700; color: var(--accent); transition: color 0.3s; }
+  .quality-unit { font-size: 11px; color: #333; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 2px;
+    background: #1a1a1a;
+    outline: none;
+    border-radius: 0;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  input[type=range]:disabled { opacity: 0.2; cursor: default; }
+  input[type=range]:disabled::-webkit-slider-thumb { cursor: default; }
+
+  .quality-marks { display: flex; justify-content: space-between; }
+  .quality-marks span {
+    font-size: 9px;
+    color: #222;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  /* Drop zone */
+  #dropzone {
+    border: 1px dashed #1e1e1e;
+    border-radius: 2px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #dropzone.drag-over {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  .drop-icon {
+    font-size: 32px;
+    opacity: 0.2;
+    margin-bottom: 14px;
+    display: block;
+    transition: all 0.2s;
+  }
+
+  #dropzone.drag-over .drop-icon { opacity: 0.8; transform: scale(1.1); }
+
+  .drop-title { font-size: 13px; color: #333; letter-spacing: 2px; transition: color 0.2s; }
+  #dropzone.drag-over .drop-title { color: var(--accent); }
+  .drop-sub { font-size: 10px; color: #1e1e1e; margin-top: 8px; letter-spacing: 1px; }
+
+  #fileInput { display: none; }
+
+  /* File list */
+  .list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .list-count { font-size: 9px; color: #333; letter-spacing: 3px; }
+
+  .btn-clear {
+    background: transparent;
+    border: 1px solid #1a1a1a;
+    color: #333;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: 2px;
+    border-radius: 1px;
+    transition: all 0.15s;
+  }
+
+  .btn-clear:hover { border-color: #ff3d3d; color: #ff3d3d; }
+
+  #fileList { display: flex; flex-direction: column; gap: 6px; }
+
+  /* File card */
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    animation: fadeIn 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .file-card-bar {
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    transition: all 0.3s;
+    opacity: 0;
+  }
+
+  .file-card.done .file-card-bar { opacity: 1; }
+
+  .thumb {
+    width: 52px; height: 52px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: #0c0c0c;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #2a2a2a;
+  }
+
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .file-info { flex: 1; min-width: 0; }
+
+  .file-name {
+    font-size: 12px;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-meta { font-size: 10px; color: #333; margin-top: 4px; }
+  .file-meta .fmt-label { transition: color 0.3s; }
+
+  .file-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+
+  .btn-convert {
+    background: transparent;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 1px;
+    border-radius: 1px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-convert:hover { color: #000 !important; }
+
+  .btn-download {
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 1px;
+    border-radius: 1px;
+    text-decoration: none;
+    font-weight: 700;
+    color: #000;
+    white-space: nowrap;
+    display: inline-block;
+    transition: opacity 0.15s;
+  }
+
+  .btn-download:hover { opacity: 0.85; }
+
+  .btn-remove {
+    background: transparent;
+    border: 1px solid #1a1a1a;
+    color: #333;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    border-radius: 1px;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+
+  .btn-remove:hover { border-color: #ff3d3d; color: #ff3d3d; }
+
+  .status-processing {
+    font-size: 11px; color: #444;
+    animation: pulse 1s infinite;
+    padding: 6px 14px;
+    white-space: nowrap;
+  }
+
+  .status-error { font-size: 11px; color: #ff3d3d; padding: 6px; }
+
+  /* Footer */
+  .footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid #111;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: gap;
+    gap: 12px;
+  }
+
+  .footer span { font-size: 9px; color: #1e1e1e; letter-spacing: 2px; }
+
+  /* Batch convert button */
+  #btnBatch {
+    background: transparent;
+    border: 1px solid #222;
+    color: #444;
+    padding: 10px 24px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 2px;
+    border-radius: 1px;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  #btnBatch:hover { border-color: var(--accent); color: var(--accent); }
+  #btnBatch:disabled { opacity: 0.3; cursor: default; border-color: #222; color: #444; }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="eyebrow">◈ UTILITY / IMAGE / v2.0</div>
+  <h1>Convertidor<br><span id="accentTitle">De Formatos</span></h1>
+  <div class="tagline">SVG · GIF · TIFF · JPEG · PNG · BMP · WEBP</div>
+
+  <!-- Controls -->
+  <div class="controls">
+
+    <!-- Format selector -->
+    <div class="panel">
+      <div class="panel-label">TARGET FORMAT</div>
+      <div class="fmt-grid" id="formatGrid"></div>
+    </div>
+
+    <!-- Quality -->
+    <div class="panel">
+      <div class="panel-label">QUALITY</div>
+      <div class="quality-row">
+        <div><span class="quality-val" id="qualityVal">90</span><span class="quality-unit"> %</span></div>
+        <div style="font-size:10px;color:#2a2a2a" id="qualityNote">JPEG / WEBP</div>
+      </div>
+      <input type="range" id="qualityRange" min="10" max="100" value="90">
+      <div class="quality-marks">
+        <span onclick="setQuality(10)">10</span>
+        <span onclick="setQuality(25)">25</span>
+        <span onclick="setQuality(50)">50</span>
+        <span onclick="setQuality(75)">75</span>
+        <span onclick="setQuality(90)">90</span>
+        <span onclick="setQuality(100)">100</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Drop zone -->
+  <div id="dropzone" onclick="document.getElementById('fileInput').click()">
+    <span class="drop-icon" id="dropIcon">◈</span>
+    <div class="drop-title" id="dropTitle">ARRASTRA IMÁGENES AQUÍ</div>
+    <div class="drop-sub">o haz clic para explorar · todos los formatos soportados</div>
+  </div>
+  <input type="file" id="fileInput" multiple accept="image/*,.svg,.bmp,.tiff,.tif">
+
+  <!-- File list -->
+  <div id="listContainer" style="display:none">
+    <div class="list-header">
+      <div class="list-count" id="listCount">0 FILES</div>
+      <button class="btn-clear" onclick="clearAll()">LIMPIAR TODO</button>
+    </div>
+    <button id="btnBatch" onclick="convertAll()">⚡ CONVERTIR TODO</button>
+    <div id="fileList"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>NAVEGADOR · SIN SUBIDAS · 100% LOCAL</span>
+    <span>TIFF exporta como PNG (limitación del canvas)</span>
+  </div>
+
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const FORMATS = ['PNG','JPEG','BMP','GIF','TIFF','WEBP','SVG'];
+
+const FMT = {
+  PNG:  { mime:'image/png',      ext:'png',  icon:'◈', color:'#00e5ff' },
+  JPEG: { mime:'image/jpeg',     ext:'jpg',  icon:'◉', color:'#ff6b35' },
+  BMP:  { mime:'image/bmp',      ext:'bmp',  icon:'◧', color:'#a8ff3e' },
+  GIF:  { mime:'image/gif',      ext:'gif',  icon:'◎', color:'#ff3de8' },
+  TIFF: { mime:'image/png',      ext:'tiff', icon:'◫', color:'#ffe040' },
+  WEBP: { mime:'image/webp',     ext:'webp', icon:'◍', color:'#69ffb4' },
+  SVG:  { mime:'image/svg+xml',  ext:'svg',  icon:'◬', color:'#b388ff' },
+};
+
+let targetFormat = 'PNG';
+let quality = 90;
+let files = []; // { id, file, objectURL }
+let cardCount = 0;
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+function init() {
+  // Build format buttons
+  const grid = document.getElementById('formatGrid');
+  FORMATS.forEach(fmt => {
+    const btn = document.createElement('button');
+    btn.className = 'fmt-btn' + (fmt === targetFormat ? ' active' : '');
+    btn.id = 'fmtBtn_' + fmt;
+    btn.textContent = FMT[fmt].icon + ' ' + fmt;
+    btn.onclick = () => selectFormat(fmt);
+    grid.appendChild(btn);
+  });
+
+  applyAccent();
+
+  // Quality range
+  document.getElementById('qualityRange').addEventListener('input', e => {
+    quality = parseInt(e.target.value);
+    document.getElementById('qualityVal').textContent = quality;
+  });
+
+  // File input
+  document.getElementById('fileInput').addEventListener('change', e => {
+    addFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  // Drop zone
+  const dz = document.getElementById('dropzone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files);
+  });
+}
+
+// ─── FORMAT SELECTION ────────────────────────────────────────────────────────
+function selectFormat(fmt) {
+  document.getElementById('fmtBtn_' + targetFormat)?.classList.remove('active');
+  document.getElementById('fmtBtn_' + targetFormat).style.background = '';
+  document.getElementById('fmtBtn_' + targetFormat).style.borderColor = '';
+  document.getElementById('fmtBtn_' + targetFormat).style.color = '';
+
+  targetFormat = fmt;
+  const btn = document.getElementById('fmtBtn_' + fmt);
+  btn.classList.add('active');
+  btn.style.background = FMT[fmt].color;
+  btn.style.borderColor = FMT[fmt].color;
+  btn.style.color = '#000';
+
+  applyAccent();
+  updateQualityUI();
+  document.getElementById('dropIcon').textContent = FMT[fmt].icon;
+
+  // Reset ALL cards so they show fresh CONVERTIR button with new format
+  files.forEach(f => resetCard(f.id));
+}
+
+// Rebuild the actions area of a card to reflect current targetFormat
+function resetCard(id) {
+  const entry = files.find(f => f.id === id);
+  if (!entry) return;
+  const color = FMT[targetFormat].color;
+  const card = document.getElementById(id);
+  if (!card) return;
+
+  // Reset done state
+  card.classList.remove('done');
+  const bar = document.getElementById(id + '_bar');
+  if (bar) { bar.style.background = color; bar.style.boxShadow = `0 0 10px ${color}80`; bar.style.opacity = '0'; }
+
+  // Update format label in meta
+  const label = card.querySelector('.fmt-label');
+  if (label) { label.textContent = targetFormat; label.style.color = color; }
+
+  // Rebuild actions with fresh CONVERTIR button
+  const actions = document.getElementById(id + '_actions');
+  if (actions) {
+    actions.innerHTML = `
+      <button class="btn-convert" id="${id}_convertBtn"
+        style="border:1px solid ${color};color:${color}"
+        onclick="convertCard('${id}')"
+        onmouseover="this.style.background='${color}';this.style.color='#000'"
+        onmouseout="this.style.background='transparent';this.style.color='${color}'">
+        CONVERTIR
+      </button>
+      <button class="btn-remove" onclick="removeFile('${id}')">✕</button>
+    `;
+  }
+}
+
+function applyAccent() {
+  const c = FMT[targetFormat].color;
+  document.documentElement.style.setProperty('--accent', c);
+  document.getElementById('accentTitle').style.color = c;
+  document.getElementById('accentTitle').style.textShadow = `0 0 50px ${c}30`;
+  document.getElementById('qualityVal').style.color = c;
+}
+
+function updateQualityUI() {
+  const needsQ = targetFormat === 'JPEG' || targetFormat === 'WEBP';
+  document.getElementById('qualityRange').disabled = !needsQ;
+  document.getElementById('qualityNote').textContent = needsQ ? 'JPEG / WEBP' : 'N/A';
+}
+
+function setQuality(v) {
+  quality = v;
+  document.getElementById('qualityRange').value = v;
+  document.getElementById('qualityVal').textContent = v;
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────────────────────────
+function addFiles(fileList) {
+  const valid = Array.from(fileList).filter(f =>
+    f.type.startsWith('image/') || /\.(svg|bmp|tiff?|gif)$/i.test(f.name)
+  );
+  valid.forEach(file => {
+    const id = 'card_' + (++cardCount);
+    const objectURL = URL.createObjectURL(file);
+    files.push({ id, file, objectURL });
+    renderCard({ id, file, objectURL });
+  });
+  updateListHeader();
+}
+
+function clearAll() {
+  files.forEach(f => URL.revokeObjectURL(f.objectURL));
+  files = [];
+  document.getElementById('fileList').innerHTML = '';
+  updateListHeader();
+}
+
+function removeFile(id) {
+  const idx = files.findIndex(f => f.id === id);
+  if (idx !== -1) {
+    URL.revokeObjectURL(files[idx].objectURL);
+    files.splice(idx, 1);
+  }
+  const card = document.getElementById(id);
+  if (card) card.remove();
+  updateListHeader();
+}
+
+function updateListHeader() {
+  const n = files.length;
+  document.getElementById('listContainer').style.display = n > 0 ? 'block' : 'none';
+  document.getElementById('listCount').textContent = n + ' FILE' + (n !== 1 ? 'S' : '') + ' CARGADOS';
+}
+
+// ─── RENDER CARD ─────────────────────────────────────────────────────────────
+function renderCard({ id, file, objectURL }) {
+  const list = document.getElementById('fileList');
+  const color = FMT[targetFormat].color;
+  const sizekb = (file.size / 1024).toFixed(1);
+
+  const card = document.createElement('div');
+  card.className = 'file-card';
+  card.id = id;
+
+  card.innerHTML = `
+    <div class="file-card-bar" id="${id}_bar" style="background:${color};box-shadow:0 0 10px ${color}80"></div>
+    <div class="thumb">
+      <img src="${objectURL}" alt="" onerror="this.style.display='none'">
+    </div>
+    <div class="file-info">
+      <div class="file-name" title="${file.name}">${file.name}</div>
+      <div class="file-meta">
+        ${sizekb} KB &rarr; <span class="fmt-label" style="color:${color}">${targetFormat}</span>
+      </div>
+    </div>
+    <div class="file-actions" id="${id}_actions">
+      <button class="btn-convert" id="${id}_convertBtn"
+        style="border:1px solid ${color};color:${color}"
+        onclick="convertCard('${id}')"
+        onmouseover="this.style.background='${color}';this.style.color='#000'"
+        onmouseout="this.style.background='transparent';this.style.color='${color}'">
+        CONVERTIR
+      </button>
+      <button class="btn-remove" onclick="removeFile('${id}')">✕</button>
+    </div>
+  `;
+
+  list.appendChild(card);
+}
+
+// ─── CONVERSION ──────────────────────────────────────────────────────────────
+function convertCard(id) {
+  const entry = files.find(f => f.id === id);
+  if (!entry) return;
+
+  const actions = document.getElementById(id + '_actions');
+  const bar = document.getElementById(id + '_bar');
+  const fmt = targetFormat;   // capture current format at click time
+  const q = quality;
+
+  actions.innerHTML = `<div class="status-processing">PROCESANDO...</div>`;
+
+  convertImage(entry.file, fmt, q)
+    .then(url => {
+      const baseName = entry.file.name.replace(/\.[^.]+$/, '');
+      const color = FMT[fmt].color;
+      actions.innerHTML = `
+        <a class="btn-download" href="${url}" download="${baseName}.${FMT[fmt].ext}"
+          style="background:${color}">
+          ↓ GUARDAR ${fmt}
+        </a>
+        <button class="btn-reconvert" onclick="resetCard('${id}')"
+          style="background:transparent;border:1px solid #333;color:#555;
+                 padding:6px 10px;cursor:pointer;font-family:inherit;
+                 font-size:10px;letter-spacing:1px;border-radius:1px;"
+          onmouseover="this.style.borderColor='#aaa';this.style.color='#aaa'"
+          onmouseout="this.style.borderColor='#333';this.style.color='#555'">
+          ↺
+        </button>
+        <button class="btn-remove" onclick="removeFile('${id}')">✕</button>
+      `;
+      const card = document.getElementById(id);
+      card.classList.add('done');
+      bar.style.background = color;
+      bar.style.boxShadow = `0 0 10px ${color}80`;
+      bar.style.opacity = '1';
+    })
+    .catch(() => {
+      actions.innerHTML = `<div class="status-error">ERROR</div><button class="btn-remove" onclick="removeFile('${id}')">✕</button>`;
+    });
+}
+
+function convertAll() {
+  files.forEach(f => {
+    const btn = document.getElementById(f.id + '_convertBtn');
+    if (btn) convertCard(f.id);
+  });
+}
+
+function convertImage(file, fmt, q) {
+  return new Promise((resolve, reject) => {
+    if (fmt === 'SVG') {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${img.width}" height="${img.height}">
+  <image href="${e.target.result}" width="${img.width}" height="${img.height}"/>
+</svg>`;
+          const blob = new Blob([svg], { type: 'image/svg+xml' });
+          resolve(URL.createObjectURL(blob));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+
+        // Fill white bg for formats that don't support transparency
+        if (fmt === 'JPEG' || fmt === 'BMP') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        ctx.drawImage(img, 0, 0);
+
+        const mime = FMT[fmt].mime;
+        const qualityArg = (fmt === 'JPEG' || fmt === 'WEBP') ? q / 100 : undefined;
+
+        canvas.toBlob(blob => {
+          if (!blob) { reject(new Error('Conversion failed')); return; }
+          resolve(URL.createObjectURL(blob));
+        }, mime, qualityArg);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─── Start ───────────────────────────────────────────────────────────────────
+init();
+selectFormat('PNG');
+updateQualityUI();
+</script>
+</body>
+</html>
