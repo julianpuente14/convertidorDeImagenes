@@ -139,14 +139,14 @@
   .quality-marks { display: flex; justify-content: space-between; }
   .quality-marks span {
     font-size: 9px;
-    color: #222;
+    color: #ffffff;
     cursor: pointer;
     transition: color 0.15s;
   }
 
   /* Drop zone */
   #dropzone {
-    border: 1px dashed #1e1e1e;
+    border: 1px dashed #ffffff;
     border-radius: 2px;
     padding: 48px 24px;
     text-align: center;
@@ -173,9 +173,9 @@
 
   #dropzone.drag-over .drop-icon { opacity: 0.8; transform: scale(1.1); }
 
-  .drop-title { font-size: 13px; color: #333; letter-spacing: 2px; transition: color 0.2s; }
+  .drop-title { font-size: 13px; color: #ffffff; letter-spacing: 2px; transition: color 0.2s; }
   #dropzone.drag-over .drop-title { color: var(--accent); }
-  .drop-sub { font-size: 10px; color: #1e1e1e; margin-top: 8px; letter-spacing: 1px; }
+  .drop-sub { font-size: 10px; color: #ffffff; margin-top: 8px; letter-spacing: 1px; }
 
   #fileInput { display: none; }
 
@@ -354,7 +354,7 @@
   <!-- Header -->
   <div class="eyebrow">◈ UTILITY / IMAGE / v2.0</div>
   <h1>Convertidor<br><span id="accentTitle">De Formatos</span></h1>
-  <div class="tagline">SVG · GIF · TIFF · JPEG · PNG · BMP · WEBP</div>
+  <div class="tagline">SVG · GIF · TIFF · JPEG · PNG · BMP </div>
 
   <!-- Controls -->
   <div class="controls">
@@ -370,7 +370,7 @@
       <div class="panel-label">QUALITY</div>
       <div class="quality-row">
         <div><span class="quality-val" id="qualityVal">90</span><span class="quality-unit"> %</span></div>
-        <div style="font-size:10px;color:#2a2a2a" id="qualityNote">JPEG / WEBP</div>
+        <div style="font-size:10px;color:#ffffff" id="qualityNote">JPEG / WEBP</div>
       </div>
       <input type="range" id="qualityRange" min="10" max="100" value="90">
       <div class="quality-marks">
@@ -413,7 +413,7 @@
 
 <script>
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const FORMATS = ['PNG','JPEG','BMP','GIF','TIFF','WEBP','SVG'];
+const FORMATS = ['PNG','JPEG','BMP','GIF','TIFF','SVG'];
 
 const FMT = {
   PNG:  { mime:'image/png',      ext:'png',  icon:'◈', color:'#00e5ff' },
@@ -421,7 +421,6 @@ const FMT = {
   BMP:  { mime:'image/bmp',      ext:'bmp',  icon:'◧', color:'#a8ff3e' },
   GIF:  { mime:'image/gif',      ext:'gif',  icon:'◎', color:'#ff3de8' },
   TIFF: { mime:'image/png',      ext:'tiff', icon:'◫', color:'#ffe040' },
-  WEBP: { mime:'image/webp',     ext:'webp', icon:'◍', color:'#69ffb4' },
   SVG:  { mime:'image/svg+xml',  ext:'svg',  icon:'◬', color:'#b388ff' },
 };
 
